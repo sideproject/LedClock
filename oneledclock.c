@@ -14,9 +14,9 @@
 
 //http://www.cs.mun.ca/~rod/Winter2007/4723/notes/avr-intr/avr-intr.html
 
-volatile int32_t the_time_ms = 0U;
-volatile int32_t the_counter = 0U;
-volatile int8_t fire = 0U;
+volatile uint32_t the_time_ms = 0U;
+volatile uint32_t the_counter = 0U;
+volatile uint8_t fire = 0U;
 
 void blink_for(int16_t ms) {
 	PORTC |= (1<<PC4);
@@ -28,20 +28,20 @@ void blink_for(int16_t ms) {
 void blink_n_times(int8_t n) {
 	int8_t i = 0;
 	for (i = 0; i < n; i++) {
-		blink_for(500);
+		blink_for(255);
 	}
 }
 void blink_number(int8_t tens, int8_t ones) {
 
 	if (tens == 0)
-		blink_for(1000);
+		blink_for(500);
 	else
 		blink_n_times(tens);
 	
-	delay_ms(500);
+	delay_ms(255);
 	
 	if (ones == 0)
-		blink_for(1000);
+		blink_for(500);
 	else
 		blink_n_times(ones);
 }
@@ -57,33 +57,40 @@ ISR(PCINT1_vect) {
 }
 
 void tell_time() {
+	FILE lcd_stream = FDEV_SETUP_STREAM(lcd_putchar, 0, _FDEV_SETUP_WRITE);
 	
 	int32_t x = the_time_ms;
-		
-	int32_t seconds = x / 1000U;
+	uint32_t seconds = x / 1000U;
 	
-	int8_t seconds_ten = (seconds % 60) / 10;
-	int8_t seconds_one = (seconds % 60) % 10;		
+	// lcd_clear_and_home();
+	// lcd_line_one();
+	// fprintf_P(&lcd_stream, PSTR("%lu"), x);
+	// lcd_line_two();
+	// fprintf_P(&lcd_stream, PSTR("%lu"), seconds);
+	// delay_ms(1000);
+	// return;
 	
-	int16_t hours = seconds / 60U / 60U;
-	int8_t hours_ten = hours  / 10U;
-	int8_t hours_one = hours  % 10U;
+	uint8_t seconds_ten = (seconds % 60) / 10;
+	uint8_t seconds_one = (seconds % 60) % 10;		
+	
+	uint16_t hours = seconds / 60U / 60U;
+	uint8_t hours_ten = hours  / 10U;
+	uint8_t hours_one = hours  % 10U;
 	if (hours < 10U) {
 		hours_ten = 0U;
 		hours_one = hours;
 	}
 	
-	int16_t minutes = seconds - (hours * 60U * 60U);
+	uint16_t minutes = seconds - (hours * 60U * 60U);
 	minutes /= 60U;
-	int8_t minutes_ten = minutes / 10U;
-	int8_t minutes_one = minutes % 10U;		
+	uint8_t minutes_ten = minutes / 10U;
+	uint8_t minutes_one = minutes % 10U;		
 	if (minutes < 10U) {
 		minutes_ten = 0U;
 		minutes_one = minutes;
 	}
 
 	lcd_clear_and_home();
-	FILE lcd_stream = FDEV_SETUP_STREAM(lcd_putchar, 0, _FDEV_SETUP_WRITE);
 	
 	lcd_line_one();
 	fprintf_P(&lcd_stream, PSTR("%u%u:%u%u:%u%u"), hours_ten, hours_one, minutes_ten, minutes_one, seconds_ten, seconds_one);
@@ -172,18 +179,27 @@ void SetupTimer2(){
 	TCNT2=0;
 }
 
+
 //Timer2 overflow interrupt vector handler
 ISR(TIMER2_OVF_vect) {
+	//prescaler math: http://www.atmel.com/dyn/resources/prod_documents/doc2505.pdf
 	
-	the_counter++;
-	if (the_counter >= 55) {  	//variable
-		the_counter = 0;
-		the_time_ms += 977;		//variable
+	//(14,745,600 / 1024) / 256 = 56.25 (divide by 256 because timer2 is an 8bit timer)
+	//there will be 56.25 overflows each second
+	//1,000ms / 56.25 overflows = 17.7778ms each overflow
+	
+	the_counter++;	
+	the_time_ms += 17U;
+	
+	if (the_counter >= 9U) {  //make up remainder .777778 * 9 ~= 6.9999993
+		the_time_ms += 7U;
+		the_counter = 0U;
 	}
 	
-	if (the_time_ms >= 86399000) {
-		the_time_ms = 0;
+	if (the_time_ms >= 86399000U) {
+		the_time_ms = 0U;
 	}
+	
 }
 
 int main() {
@@ -216,7 +232,8 @@ int main() {
 	//~ FILE lcd_stream = FDEV_SETUP_STREAM(lcd_putchar, 0, _FDEV_SETUP_WRITE);
 
 	//the_time_ms = 9000000U;
-	the_time_ms = get_ms(23,20,45);
+	//the_time_ms = get_ms(0,34,0);
+	the_time_ms = get_ms(1,25,15);
 
 	while (1) {
 
@@ -232,14 +249,6 @@ int main() {
 		sleep_disable();
 		sei();
 
-		//~ if (x >= 55)
-		//~ {
-			//~ PORTC |= (1<<PC4);
-			//~ delay_ms(10);
-			//~ PORTC &= ~(1<<PC4);
-			//~ delay_ms(10);
-			//~ x=0;
-		//~ }
 		if (fire == 1U) {
 			tell_time();
 		}
@@ -247,5 +256,3 @@ int main() {
 	}
 	return 0;
 }
-
-
