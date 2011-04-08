@@ -18,36 +18,36 @@ volatile uint32_t the_time_ms = 0U;
 volatile uint32_t the_counter = 0U;
 volatile uint8_t fire = 0U;
 
-void blink_for(int16_t ms) {
+void blink_for(uint16_t ms) {
 	PORTC |= (1<<PC4);
 	delay_ms(ms);
 
 	PORTC &= ~(1<<PC4);
 	delay_ms(ms);
 }
-void blink_n_times(int8_t n) {
-	int8_t i = 0;
-	for (i = 0; i < n; i++) {
-		blink_for(255);
+void blink_n_times(uint8_t n) {
+	int8_t i = 0U;
+	for (i = 0U; i < n; i++) {
+		blink_for(255U);
 	}
 }
-void blink_number(int8_t tens, int8_t ones) {
+void blink_number(uint8_t tens, uint8_t ones) {
 
-	if (tens == 0)
-		blink_for(500);
+	if (tens == 0U)
+		blink_for(500U);
 	else
 		blink_n_times(tens);
 	
-	delay_ms(255);
+	delay_ms(255U);
 	
-	if (ones == 0)
-		blink_for(500);
+	if (ones == 0U)
+		blink_for(500U);
 	else
 		blink_n_times(ones);
 }
 
 //get_ms(21,30,0); //9:30 PM
-int32_t get_ms(int32_t hour, int32_t minute, int32_t second) {
+int32_t get_ms(uint32_t hour, uint32_t minute, uint32_t second) {
 	return ( (60U * 60U * hour) + (minute * 60U ) + second ) * 1000U;
 }
 
@@ -70,8 +70,8 @@ void tell_time() {
 	// delay_ms(1000);
 	// return;
 	
-	uint8_t seconds_ten = (seconds % 60) / 10;
-	uint8_t seconds_one = (seconds % 60) % 10;		
+	uint8_t seconds_ten = (seconds % 60U) / 10U;
+	uint8_t seconds_one = (seconds % 60U) % 10U;
 	
 	uint16_t hours = seconds / 60U / 60U;
 	uint8_t hours_ten = hours  / 10U;
@@ -91,13 +91,12 @@ void tell_time() {
 	}
 
 	lcd_clear_and_home();
-	
 	lcd_line_one();
 	fprintf_P(&lcd_stream, PSTR("%u%u:%u%u:%u%u"), hours_ten, hours_one, minutes_ten, minutes_one, seconds_ten, seconds_one);
 	//fprintf_P(&lcd_stream, PSTR("%lu"), the_time_ms);
 		
 	blink_number(hours_ten, hours_one);
-	delay_ms(1000);
+	delay_ms(1000U);
 	blink_number(minutes_ten, minutes_one);
 	
 	fire = 0U;
@@ -233,7 +232,7 @@ int main() {
 
 	//the_time_ms = 9000000U;
 	//the_time_ms = get_ms(0,34,0);
-	the_time_ms = get_ms(1,25,15);
+	the_time_ms = get_ms(1U,25U,15U);
 
 	while (1) {
 
