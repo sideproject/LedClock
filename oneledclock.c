@@ -14,7 +14,8 @@
 //http://www.uchobby.com/index.php/2007/11/24/arduino-interrupts/
 
 volatile uint32_t the_time_ms = 0UL;
-volatile uint32_t the_counter = 0UL;
+volatile uint32_t start_ms = 0UL;
+volatile uint8_t remainder_counter = 0U;
 volatile uint8_t fire = 0U;
 
 void blink_for(uint16_t ms) {
@@ -57,22 +58,26 @@ ISR(PCINT1_vect) {
 
 void tell_time() {
 	FILE lcd_stream = FDEV_SETUP_STREAM(lcd_putchar, 0, _FDEV_SETUP_WRITE);
-	
-	int32_t x = the_time_ms;
-	uint32_t seconds = x / 1000UL;
+	int32_t snapshot_ms = the_time_ms; //use snapshot since the_time_ms could change during our calculations
 	
 	// lcd_clear_and_home();
 	// lcd_line_one();
-	// fprintf_P(&lcd_stream, PSTR("%lu"), x);
+	// fprintf_P(&lcd_stream, PSTR("%lu"), snapshot);
 	// lcd_line_two();
 	// fprintf_P(&lcd_stream, PSTR("%lu"), seconds);
 	// delay_ms(1000);
 	// return;
 	
-	uint8_t seconds_ten = (seconds % 60UL) / 10UL;
-	uint8_t seconds_one = (seconds % 60UL) % 10UL;
+	//clock seems to run ~2 seconds too fast every hour we're running -- account for that
+	uint32_t hrsRunning = (snapshot_ms - start_ms) / 1000UL / 60UL / 60UL;  // /1000-> seconds /60->minutes /60->hours
+	uint32_t adjusted_ms = snapshot_ms - (hrsRunning * 2200UL);
 	
-	uint16_t hours = seconds / 60UL / 60UL;
+	uint32_t adjusted_s = adjusted_ms / 1000UL;
+
+	uint8_t seconds_ten = (adjusted_s % 60UL) / 10UL;
+	uint8_t seconds_one = (adjusted_s % 60UL) % 10UL;
+	
+	uint16_t hours = adjusted_s / 60UL / 60UL;
 	uint8_t hours_ten = hours  / 10U;
 	uint8_t hours_one = hours  % 10U;
 	if (hours < 10U) {
@@ -80,7 +85,7 @@ void tell_time() {
 		hours_one = hours;
 	}
 	
-	uint16_t minutes = seconds - (hours * 60UL * 60UL);
+	uint16_t minutes = adjusted_s - (hours * 60UL * 60UL);
 	minutes /= 60U;
 	uint8_t minutes_ten = minutes / 10U;
 	uint8_t minutes_one = minutes % 10U;		
@@ -127,16 +132,16 @@ ISR(TIMER2_OVF_vect) {
 	//there will be 56.25 overflows each second
 	//1,000ms / 56.25 overflows = 17.7778ms each overflow
 	
-	the_counter++;	
+	remainder_counter++;
 	the_time_ms += 17UL;
 	
-	if (the_counter >= 9U) {  //make up remainder .777778 * 9 ~= 6.9999993
+	if (remainder_counter >= 9U) {  //make up remainder .777778 * 9 ~= 6.9999993
 		the_time_ms += 7UL;
-		the_counter = 0U;
+		remainder_counter = 0U;
 	}
 	
 	if (the_time_ms >= 86399000UL) { //24 hours
-		the_time_ms = 0U;
+		start_ms = the_time_ms = 0U;
 	}
 	
 }
@@ -160,7 +165,7 @@ int main() {
 	SetupTimer2();
 	lcd_init();
 	
-	the_time_ms = get_ms(15UL,43UL,30UL);
+	start_ms = the_time_ms = get_ms(15UL,15UL,0UL);	
 
 	while (1) {
 
