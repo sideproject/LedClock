@@ -68,11 +68,14 @@ void tell_time() {
 	// delay_ms(1000);
 	// return;
 	
-	//clock seems to run ~2 seconds too fast every hour we're running -- account for that
-	uint32_t hrsRunning = (snapshot_ms - start_ms) / 1000UL / 60UL / 60UL;  // /1000-> seconds /60->minutes /60->hours
-	uint32_t adjusted_ms = snapshot_ms - (hrsRunning * 2200UL);
+	// //clock seems to run ~2 seconds too fast every hour we're running -- account for that
+	// uint32_t hrsRunning = (snapshot_ms - start_ms) / 1000UL / 60UL / 60UL;  // /1000-> seconds /60->minutes /60->hours
+	// uint32_t adjusted_ms = snapshot_ms - (hrsRunning * 2300UL);
 	
-	uint32_t adjusted_s = adjusted_ms / 1000UL;
+	//uint32_t adjusted_s = adjusted_ms / 1000UL;
+	
+	
+	uint32_t adjusted_s = snapshot_ms / 1000UL;
 
 	uint8_t seconds_ten = (adjusted_s % 60UL) / 10UL;
 	uint8_t seconds_one = (adjusted_s % 60UL) % 10UL;
@@ -97,11 +100,16 @@ void tell_time() {
 	lcd_clear_and_home();
 	lcd_line_one();
 	fprintf_P(&lcd_stream, PSTR("%u%u:%u%u:%u%u"), hours_ten, hours_one, minutes_ten, minutes_one, seconds_ten, seconds_one);
+	lcd_line_two();
+	fprintf_P(&lcd_stream, PSTR("snap: %lu"), snapshot_ms);
+	lcd_line_three();
+	fprintf_P(&lcd_stream, PSTR("start:%lu"), start_ms);
+	
 	//fprintf_P(&lcd_stream, PSTR("%lu"), the_time_ms);
 	blink_number(hours_ten, hours_one);
-		
 	delay_ms(1000U);
 	blink_number(minutes_ten, minutes_one);
+	delay_ms(1000U);
 	
 	fire = 0U;
 	lcd_clear_and_home();
@@ -133,10 +141,18 @@ ISR(TIMER2_OVF_vect) {
 	//1,000ms / 56.25 overflows = 17.7778ms each overflow
 	
 	remainder_counter++;
-	the_time_ms += 17UL;
+	the_time_ms += 17UL; //we can't add 17.7778
 	
-	if (remainder_counter >= 9U) {  //make up remainder .777778 * 9 ~= 6.9999993
-		the_time_ms += 7UL;
+	// if (remainder_counter >= 9U) {  //make up remainder .777778 * 9 ~= 6.9999993
+		// the_time_ms += 7UL;
+		// remainder_counter = 0U;
+	// }
+	
+	//56.25 * 17.7778 = 1000ms
+	//for each overflow, we gain 17ms (17 * 56 = 952), we need to make up the difference
+	//for each 57th (56.25) overflow, make up the difference of 48ms
+	if (remainder_counter >= 57U) {
+		the_time_ms += 44UL;
 		remainder_counter = 0U;
 	}
 	
@@ -165,7 +181,7 @@ int main() {
 	SetupTimer2();
 	lcd_init();
 	
-	start_ms = the_time_ms = get_ms(15UL,15UL,0UL);	
+	start_ms = the_time_ms = get_ms(22UL,1UL,30UL);	
 
 	while (1) {
 
